@@ -45,7 +45,7 @@ static const uint8_t S1[256] = {
     0x64,0xbe,0x85,0x9b,0x2f,0x59,0x8a,0xd7,0xb0,0x25,0xac,0xaf,0x12,0x03,0xe2,0xf2
 };
 /* the constants D */
-static const uint32_t D[16] = {
+static const uint16_t D[16] = {
     0x44D7, 0x26BC, 0x626B, 0x135E, 0x5789, 0x35E2, 0x7135, 0x09AF,
     0x4D78, 0x2F13, 0x6BC4, 0x1AF1, 0x5E26, 0x3C4D, 0x789A, 0x47AC
 };
@@ -143,7 +143,7 @@ static uint32_t F(void)
                      S0[(v >> 8) & 0xFF], S1[v & 0xFF]);
     return W;
 }
-static uint32_t MAKEU31(const uint8_t a, const uint32_t b, const uint8_t c)
+static uint32_t MAKEU31(const uint8_t a, const uint16_t b, const uint8_t c)
 {
     return ((uint32_t)a << 23) | ((uint32_t)b << 8) | (uint32_t)c;
 }
