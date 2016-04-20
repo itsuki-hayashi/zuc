@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <inttypes.h>
+#if defined(_M_IX86) || defined(_M_X64)
+#   include <immintrin.h>
+#endif
 /* ——————————————————————- */
 /* the state registers of LFSR */
 static uint32_t LFSR[16];
@@ -61,47 +64,23 @@ static uint32_t MulByPow2(const uint32_t x, const uint32_t k)
 {
     return ((x << k) | (x >> (31 - k))) & 0x7FFFFFFF;
 }
-static void LFSRWithInitialisationMode(const uint32_t u)
-{
-    uint32_t f, v;
-    f = LFSR[0];
-    v = MulByPow2(LFSR[0], 8);
-    f = AddM(f, v);
-    v = MulByPow2(LFSR[4], 20);
-    f = AddM(f, v);
-    v = MulByPow2(LFSR[10], 21);
-    f = AddM(f, v);
-    v = MulByPow2(LFSR[13], 17);
-    f = AddM(f, v);
-    v = MulByPow2(LFSR[15], 15);
-    f = AddM(f, v);
-    f = AddM(f, u);
-    /* update the state */
+static void LFSRAppend(const uint32_t f) {
     for (size_t i = 0; i < 15; ++i) {
         LFSR[i] = LFSR[i + 1];
     }
     LFSR[15] = f;
 }
+static uint32_t LFSRNext(void) {
+    return AddM(AddM(AddM(AddM(AddM(LFSR[0], MulByPow2(LFSR[0], 8)), MulByPow2(LFSR[4], 20)), MulByPow2(LFSR[10], 21)), MulByPow2(LFSR[13], 17)), MulByPow2(LFSR[15], 15));
+}
+static void LFSRWithInitialisationMode(const uint32_t u)
+{
+    LFSRAppend(AddM(LFSRNext(), u));
+}
 /* LFSR with work mode */
 static void LFSRWithWorkMode(void)
 {
-    uint32_t f, v;
-    f = LFSR[0];
-    v = MulByPow2(LFSR[0], 8);
-    f = AddM(f, v);
-    v = MulByPow2(LFSR[4], 20);
-    f = AddM(f, v);
-    v = MulByPow2(LFSR[10], 21);
-    f = AddM(f, v);
-    v = MulByPow2(LFSR[13], 17);
-    f = AddM(f, v);
-    v = MulByPow2(LFSR[15], 15);
-    f = AddM(f, v);
-    /* update the state */
-    for (size_t i = 0; i < 15; ++i) {
-        LFSR[i] = LFSR[i + 1];
-    }
-    LFSR[15] = f;
+    LFSRAppend(LFSRNext());
 }
 /* BitReorganization */
 static void BitReorganization(void)
@@ -111,10 +90,15 @@ static void BitReorganization(void)
     X[2] = ((LFSR[7] & 0xFFFF) << 16) | (LFSR[5] >> 15);
     X[3] = ((LFSR[2] & 0xFFFF) << 16) | (LFSR[0] >> 15);
 }
-static uint32_t ROT(const uint32_t a, const uint32_t k)
+// unsigned int _rotl (unsigned int a, int shift)
+#if defined(_M_IX86) || defined(_M_X64)
+#    define ROT _rotl
+#else
+static uint32_t ROT(const uint32_t a, const uint32_t shift)
 {
-    return (a << k) | (a >> (32 - k));
+    return (a << shift) | (a >> (32 - shift));
 }
+#endif
 /* L1 */
 static uint32_t L1(const uint32_t x)
 {
