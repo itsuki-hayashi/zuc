@@ -45,7 +45,7 @@ static const uint8_t S1[256] = {
     0x64,0xbe,0x85,0x9b,0x2f,0x59,0x8a,0xd7,0xb0,0x25,0xac,0xaf,0x12,0x03,0xe2,0xf2
 };
 /* the constants D */
-static const uint32_t EK_d[16] = {
+static const uint32_t D[16] = {
     0x44D7, 0x26BC, 0x626B, 0x135E, 0x5789, 0x35E2, 0x7135, 0x09AF,
     0x4D78, 0x2F13, 0x6BC4, 0x1AF1, 0x5E26, 0x3C4D, 0x789A, 0x47AC
 };
@@ -57,7 +57,8 @@ static uint32_t AddM(const uint32_t a, const uint32_t b)
     return (c & 0x7FFFFFFF) + (c >> 31);
 }
 /* LFSR with initialization mode */
-static uint32_t MulByPow2(const uint32_t x, const uint32_t k) {
+static uint32_t MulByPow2(const uint32_t x, const uint32_t k)
+{
     return ((x << k) | (x >> (31 - k))) & 0x7FFFFFFF;
 }
 static void LFSRWithInitialisationMode(const uint32_t u)
@@ -82,7 +83,7 @@ static void LFSRWithInitialisationMode(const uint32_t u)
     LFSR[15] = f;
 }
 /* LFSR with work mode */
-static void LFSRWithWorkMode()
+static void LFSRWithWorkMode(void)
 {
     uint32_t f, v;
     f = LFSR[0];
@@ -103,45 +104,47 @@ static void LFSRWithWorkMode()
     LFSR[15] = f;
 }
 /* BitReorganization */
-static void BitReorganization()
+static void BitReorganization(void)
 {
     X[0] = ((LFSR[15] & 0x7FFF8000) << 1) | (LFSR[14] & 0xFFFF);
     X[1] = ((LFSR[11] & 0xFFFF) << 16) | (LFSR[9] >> 15);
     X[2] = ((LFSR[7] & 0xFFFF) << 16) | (LFSR[5] >> 15);
     X[3] = ((LFSR[2] & 0xFFFF) << 16) | (LFSR[0] >> 15);
 }
-static uint32_t ROT(const uint32_t a, const uint32_t k) {
+static uint32_t ROT(const uint32_t a, const uint32_t k)
+{
     return (a << k) | (a >> (32 - k));
 }
 /* L1 */
-static uint32_t L1(const uint32_t X)
+static uint32_t L1(const uint32_t x)
 {
-    return (X ^ ROT(X, 2) ^ ROT(X, 10) ^ ROT(X, 18) ^ ROT(X, 24));
+    return (x ^ ROT(x, 2) ^ ROT(x, 10) ^ ROT(x, 18) ^ ROT(x, 24));
 }
 /* L2 */
-static uint32_t L2(const uint32_t X)
+static uint32_t L2(const uint32_t x)
 {
-    return (X ^ ROT(X, 8) ^ ROT(X, 14) ^ ROT(X, 22) ^ ROT(X, 30));
+    return (x ^ ROT(x, 8) ^ ROT(x, 14) ^ ROT(x, 22) ^ ROT(x, 30));
 }
-static uint32_t MAKEU32(const uint8_t a, const uint8_t b, const uint8_t c, const uint8_t d) {
+static uint32_t MAKEU32(const uint8_t a, const uint8_t b, const uint8_t c, const uint8_t d)
+{
     return (((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)c << 8) | (uint32_t)d);
 }
 /* F */
-static uint32_t F()
+static uint32_t F(void)
 {
-    uint32_t W, W1, W2, u, v;
-    W = (X[0] ^ F_R[0]) + F_R[1];
-    W1 = F_R[0] + X[1];
-    W2 = F_R[1] ^ X[2];
-    u = L1((W1 << 16) | (W2 >> 16));
-    v = L2((W2 << 16) | (W1 >> 16));
+    const uint32_t W = (X[0] ^ F_R[0]) + F_R[1];
+    const uint32_t W1 = F_R[0] + X[1];
+    const uint32_t W2 = F_R[1] ^ X[2];
+    const uint32_t u = L1((W1 << 16) | (W2 >> 16));
+    const uint32_t v = L2((W2 << 16) | (W1 >> 16));
     F_R[0] = MAKEU32(S0[u >> 24], S1[(u >> 16) & 0xFF],
-                   S0[(u >> 8) & 0xFF], S1[u & 0xFF]);
+                     S0[(u >> 8) & 0xFF], S1[u & 0xFF]);
     F_R[1] = MAKEU32(S0[v >> 24], S1[(v >> 16) & 0xFF],
-                   S0[(v >> 8) & 0xFF], S1[v & 0xFF]);
+                     S0[(v >> 8) & 0xFF], S1[v & 0xFF]);
     return W;
 }
-static uint32_t MAKEU31(const uint8_t a, const uint32_t b, const uint8_t c) {
+static uint32_t MAKEU31(const uint8_t a, const uint32_t b, const uint8_t c)
+{
     return ((uint32_t)a << 23) | ((uint32_t)b << 8) | (uint32_t)c;
 }
 /* initialize */
@@ -149,13 +152,12 @@ void Initialization(const uint8_t* k, const uint8_t* iv)
 {
     /* expand key */
     for (int i = 0; i < 16; ++i) {
-        LFSR[i] = MAKEU31(k[i], EK_d[i], iv[i]);
+        LFSR[i] = MAKEU31(k[i], D[i], iv[i]);
     }
     /* set F_R[0] and F_R[1] to zero */
     F_R[0] = 0;
     F_R[1] = 0;
-    for (int i = 0; i < 32; ++i)
-    {
+    for (int i = 0; i < 32; ++i) {
         BitReorganization();
         const uint32_t w = F();
         LFSRWithInitialisationMode(w >> 1);
@@ -163,25 +165,21 @@ void Initialization(const uint8_t* k, const uint8_t* iv)
 }
 void GenerateKeystream(uint32_t* pKeystream, const int KeystreamLen)
 {
-    int i;
-    {
-        BitReorganization();
-        F(); /* discard the output of F */
-        LFSRWithWorkMode();
-    }
-    for (i = 0; i < KeystreamLen; i ++)
-    {
+    BitReorganization();
+    F(); /* discard the output of F */
+    LFSRWithWorkMode();
+    for (int i = 0; i < KeystreamLen; i ++) {
         BitReorganization();
         pKeystream[i] = F() ^ X[3];
         LFSRWithWorkMode();
     }
 }
 
-int main() {
-    int i;
+int main(void)
+{
     uint8_t key[16], iv[16];
     uint32_t buffer[16];
-    for (i = 0; i < 16; ++i) {
+    for (int i = 0; i < 16; ++i) {
         key[i] = 0;
         iv[i] = 0;
         buffer[i] = 0;
@@ -189,5 +187,4 @@ int main() {
     Initialization(key, iv);
     GenerateKeystream(buffer, 2);
     printf("%08x,%08x\n", buffer[0], buffer[1]); // Expect: "27bede74,018082da"
-    
 }
