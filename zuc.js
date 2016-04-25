@@ -147,6 +147,28 @@ function rotateLeft32(x, n) {
 }
 
 /**
+ * Linear transform 1.
+ *
+ * @param {number} x
+ * @returns {number}
+ */
+function linearTransform1(x) {
+  return (x ^ rotateLeft32(x, 2) ^ rotateLeft32(x, 10) ^
+    rotateLeft32(x, 18) ^ rotateLeft32(x, 24)) >>> 0;
+}
+
+/**
+ * Linear transform 2.
+ *
+ * @param {number} x
+ * @returns {number}
+ */
+function linearTransform2(x) {
+  return (x ^ rotateLeft32(x, 8) ^ rotateLeft32(x, 14) ^
+    rotateLeft32(x, 22) ^ rotateLeft32(x, 30)) >>> 0;
+}
+
+/**
  * Tester: run with Node.js.
  */
 (() => {
