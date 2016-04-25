@@ -42,6 +42,7 @@ const S0 = Uint8Array.of(
 
 /**
  * The S-box 1 for ZUC.
+ *
  * @const
  * @type {Uint8Array}
  */
@@ -82,6 +83,7 @@ const S1 = Uint8Array.of(
 
 /**
  * The constant D.
+ *
  * @const
  * @type {Uint16Array}
  */
@@ -89,3 +91,84 @@ const D = Uint16Array.of(
   0x44D7, 0x26BC, 0x626B, 0x135E, 0x5789, 0x35E2, 0x7135, 0x09AF,
   0x4D78, 0x2F13, 0x6BC4, 0x1AF1, 0x5E26, 0x3C4D, 0x789A, 0x47AC
 );
+
+/**
+ * The state registers of LFSR.
+ *
+ * @type {Uint32Array}
+ */
+const LFSR = new Uint32Array(16);
+
+/**
+ * The outputs of bit-reorganization.
+ *
+ * @type {Uint32Array}
+ */
+const X = new Uint32Array(4);
+
+/**
+ * The registers of F.
+ *
+ * @type {Uint32Array}
+ */
+const R = new Uint32Array(2);
+/**
+ * Emulated addition over GF(2 ^ 31 - 1).
+ *
+ * @param {number} augend
+ * @param {number} addend
+ * @returns {number}
+ */
+function addition31(augend, addend) {
+  const summand = ((augend >>> 0) + (addend >>> 0)) >>> 0;
+  return (((summand & 0x7FFFFFFF) >>> 0) + (summand >>> 31)) >>> 0;
+}
+
+/**
+ * Circular left shift over GF(2 ^ 31 - 1).
+ *
+ * @param {number} x
+ * @param {number} n
+ * @returns {number}
+ */
+function rotateLeft31(x, n) {
+  return (((((x >>> 0) << n) | (x >>> (31 - n))) >>> 0) & 0x7FFFFFFF) >>> 0;
+}
+
+/**
+ * Circular left shift over GF(2 ^ 32 - 1).
+ *
+ * @param {number} x
+ * @param {number} n
+ * @returns {number}
+ */
+function rotateLeft32(x, n) {
+  return ((((x >>> 0) << n) | (x >>> (32 - n))) >>> 0) >>> 0;
+}
+
+/**
+ * Tester: run with Node.js.
+ */
+(() => {
+  const assert = require('assert');
+  // Testing initialization.
+  assert.strictEqual(S0.length, 256);
+  assert.strictEqual(S0.BYTES_PER_ELEMENT, 1);
+  assert.strictEqual(S1.length, 256);
+  assert.strictEqual(S1.BYTES_PER_ELEMENT, 1);
+  assert.strictEqual(D.length, 16);
+  assert.strictEqual(D.BYTES_PER_ELEMENT, 2);
+  assert.strictEqual(LFSR.length, 16);
+  assert.strictEqual(LFSR.BYTES_PER_ELEMENT, 4);
+  assert.strictEqual(X.length, 4);
+  assert.strictEqual(X.BYTES_PER_ELEMENT, 4);
+  assert.strictEqual(R.length, 2);
+  assert.strictEqual(R.BYTES_PER_ELEMENT, 4);
+  // Testing bitop utilities.
+  for (let i = 0; i <= 32; ++i) {
+    assert.strictEqual(rotateLeft31(0xFFFFFFFF, i), 0x7FFFFFFF);
+    assert.strictEqual(rotateLeft32(0xFFFFFFFF, i), 0xFFFFFFFF);
+    assert.strictEqual(rotateLeft31(i, i), ((i << i) | i >>> (31 - i)) & 0x7FFFFFFF);
+    assert.strictEqual(rotateLeft32(i, i), ((i << i) | i >>> (32 - i)) >>> 0);
+  }
+})();
