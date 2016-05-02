@@ -169,6 +169,6 @@ int main(void)
         buffer[i] = 0;
     }
     Initialization(key, iv);
-    GenerateKeystream(buffer, 2);
+    GenerateKeystream(buffer, 16);
     printf("%08x,%08x\n", buffer[0], buffer[1]); // Expect: "27bede74,018082da"
 }
