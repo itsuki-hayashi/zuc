@@ -1,16 +1,11 @@
-#include <stdio.h>
-#include <inttypes.h>
+#include "zuc.h"
 #if defined(_M_IX86) || defined(_M_X64)
 #   include <immintrin.h>
 #endif
-/* ——————————————————————- */
-/* the state registers of LFSR */
-static uint32_t LFSR[16];
-/* the registers of F */
-static uint32_t F_R[2];
-/* the outputs of BitReorganization */
-static uint32_t X[4];
-/* the s-boxes */
+
+// Constants.
+
+// The S-boxes.
 static const uint8_t S0[256] = {
     0x3E,0x72,0x5B,0x47,0xCA,0xE0,0x00,0x33,0x04,0xD1,0x54,0x98,0x09,0xB9,0x6D,0xCB,
     0x7B,0x1B,0xF9,0x32,0xAF,0x9D,0x6A,0xA5,0xB8,0x2D,0xFC,0x1D,0x08,0x53,0x03,0x90,
@@ -29,6 +24,7 @@ static const uint8_t S0[256] = {
     0x8E,0x83,0x77,0x6B,0x25,0x05,0x3F,0x0C,0x30,0xEA,0x70,0xB7,0xA1,0xE8,0xA9,0x65,
     0x8D,0x27,0x1A,0xDB,0x81,0xB3,0xA0,0xF4,0x45,0x7A,0x19,0xDF,0xEE,0x78,0x34,0x60
 };
+
 static const uint8_t S1[256] = {
     0x55,0xC2,0x63,0x71,0x3B,0xC8,0x47,0x86,0x9F,0x3C,0xDA,0x5B,0x29,0xAA,0xFD,0x77,
     0x8C,0xC5,0x94,0x0C,0xA6,0x1A,0x13,0x00,0xE3,0xA8,0x16,0x72,0x40,0xF9,0xF8,0x42,
@@ -47,128 +43,147 @@ static const uint8_t S1[256] = {
     0x88,0xB1,0x98,0x7C,0xF3,0x3D,0x60,0x6C,0x7B,0xCA,0xD3,0x1F,0x32,0x65,0x04,0x28,
     0x64,0xBE,0x85,0x9B,0x2F,0x59,0x8A,0xD7,0xB0,0x25,0xAC,0xAF,0x12,0x03,0xE2,0xF2
 };
-/* the constants D */
+
+// The constant D.
 static const uint16_t D[16] = {
     0x44D7, 0x26BC, 0x626B, 0x135E, 0x5789, 0x35E2, 0x7135, 0x09AF,
     0x4D78, 0x2F13, 0x6BC4, 0x1AF1, 0x5E26, 0x3C4D, 0x789A, 0x47AC
 };
-/* ——————————————————————- */
-/* c = a + b mod (2^31 – 1) */
-static uint32_t AddM(const uint32_t a, const uint32_t b)
+
+// Pure functions.
+
+// Addtion of 31-bits unsigned integers.
+static uint32_t addition_uint31(const uint32_t a, const uint32_t b)
 {
     const uint32_t c = a + b;
     return (c & 0x7FFFFFFF) + (c >> 31);
 }
-/* LFSR with initialization mode */
-static uint32_t MulByPow2(const uint32_t x, const uint32_t k)
+
+// Circular left shift of 31-bits unsigned integer.
+static uint32_t rotl_uint31(const uint32_t a, const uint32_t shift)
 {
-    return ((x << k) | (x >> (31 - k))) & 0x7FFFFFFF;
+    return ((a << shift) | (a >> (31 - shift))) & 0x7FFFFFFF;
 }
-static void LFSRAppend(const uint32_t f) {
-    for (size_t i = 0; i < 15; ++i) {
-        LFSR[i] = LFSR[i + 1];
-    }
-    LFSR[15] = f;
-}
-static uint32_t LFSRNext(void) {
-    return AddM(AddM(AddM(AddM(AddM(LFSR[0], MulByPow2(LFSR[0], 8)), MulByPow2(LFSR[4], 20)), MulByPow2(LFSR[10], 21)), MulByPow2(LFSR[13], 17)), MulByPow2(LFSR[15], 15));
-}
-static void LFSRWithInitialisationMode(const uint32_t u)
-{
-    LFSRAppend(AddM(LFSRNext(), u));
-}
-/* LFSR with work mode */
-static void LFSRWithWorkMode(void)
-{
-    LFSRAppend(LFSRNext());
-}
-/* BitReorganization */
-static void BitReorganization(void)
-{
-    X[0] = ((LFSR[15] & 0x7FFF8000) << 1) | (LFSR[14] & 0xFFFF);
-    X[1] = ((LFSR[11] & 0xFFFF) << 16) | (LFSR[9] >> 15);
-    X[2] = ((LFSR[7] & 0xFFFF) << 16) | (LFSR[5] >> 15);
-    X[3] = ((LFSR[2] & 0xFFFF) << 16) | (LFSR[0] >> 15);
-}
-// unsigned int _rotl (unsigned int a, int shift)
+
+// Circular left shift of 32-bits unsigned integer.
 #if defined(_M_IX86) || defined(_M_X64)
-#    define ROT _rotl
+#    define rotl_uint32 _rotl // Use Intel intrinsics when available.
 #else
-static uint32_t ROT(const uint32_t a, const uint32_t shift)
+static uint32_t rotl_uint32(const uint32_t a, const uint32_t shift)
 {
     return (a << shift) | (a >> (32 - shift));
 }
 #endif
-/* L1 */
-static uint32_t L1(const uint32_t x)
+
+// The linear transforms L1.
+static uint32_t l1(const uint32_t x)
 {
-    return (x ^ ROT(x, 2) ^ ROT(x, 10) ^ ROT(x, 18) ^ ROT(x, 24));
+    return (x ^ rotl_uint32(x, 2) ^ rotl_uint32(x, 10) ^ rotl_uint32(x, 18) ^ rotl_uint32(x, 24));
 }
-/* L2 */
-static uint32_t L2(const uint32_t x)
+
+// The linear transforms L2.
+static uint32_t l2(const uint32_t x)
 {
-    return (x ^ ROT(x, 8) ^ ROT(x, 14) ^ ROT(x, 22) ^ ROT(x, 30));
+    return (x ^ rotl_uint32(x, 8) ^ rotl_uint32(x, 14) ^ rotl_uint32(x, 22) ^ rotl_uint32(x, 30));
 }
-static uint32_t MAKEU32(const uint8_t a, const uint8_t b, const uint8_t c, const uint8_t d)
+
+// Makes 32-bits unsigned integer.
+static uint32_t make_uint32(const uint8_t a, const uint8_t b, const uint8_t c, const uint8_t d)
 {
     return (((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)c << 8) | (uint32_t)d);
 }
-/* F */
-static uint32_t F(void)
-{
-    const uint32_t W = (X[0] ^ F_R[0]) + F_R[1];
-    const uint32_t W1 = F_R[0] + X[1];
-    const uint32_t W2 = F_R[1] ^ X[2];
-    const uint32_t u = L1((W1 << 16) | (W2 >> 16));
-    const uint32_t v = L2((W2 << 16) | (W1 >> 16));
-    F_R[0] = MAKEU32(S0[u >> 24], S1[(u >> 16) & 0xFF],
-                     S0[(u >> 8) & 0xFF], S1[u & 0xFF]);
-    F_R[1] = MAKEU32(S0[v >> 24], S1[(v >> 16) & 0xFF],
-                     S0[(v >> 8) & 0xFF], S1[v & 0xFF]);
-    return W;
-}
-static uint32_t MAKEU31(const uint8_t a, const uint16_t b, const uint8_t c)
+
+// Makes 31-bits unsigned integer.
+static uint32_t make_uint31(const uint8_t a, const uint16_t b, const uint8_t c)
 {
     return ((uint32_t)a << 23) | ((uint32_t)b << 8) | (uint32_t)c;
 }
-/* initialize */
-void Initialization(const uint8_t* k, const uint8_t* iv)
-{
-    /* expand key */
-    for (int i = 0; i < 16; ++i) {
-        LFSR[i] = MAKEU31(k[i], D[i], iv[i]);
-    }
-    /* set F_R[0] and F_R[1] to zero */
-    F_R[0] = 0;
-    F_R[1] = 0;
-    for (int i = 0; i < 32; ++i) {
-        BitReorganization();
-        const uint32_t w = F();
-        LFSRWithInitialisationMode(w >> 1);
-    }
+
+// Computes next value for LFSR.
+static uint32_t lfsr_next(const uint32_t lfsr[16]) {
+    uint32_t f = lfsr[0], v = rotl_uint31(lfsr[0], 8);  
+    f = addition_uint31(f, v);  
+    v = rotl_uint31(lfsr[4], 20);
+    f = addition_uint31(f, v);  
+    v = rotl_uint31(lfsr[10], 21);
+    f = addition_uint31(f, v);  
+    v = rotl_uint31(lfsr[13], 17);
+    f = addition_uint31(f, v);  
+    v = rotl_uint31(lfsr[15], 15);
+    f = addition_uint31(f, v);
+    return f;
 }
-void GenerateKeystream(uint32_t* pKeystream, const int KeystreamLen)
+
+// Impure functions.
+
+// Append to LFSR.
+static void lfsr_append(uint32_t lfsr[16], const uint32_t f) {
+    for (size_t i = 0; i < 15; ++i) {
+        lfsr[i] = lfsr[i + 1];
+    }
+    lfsr[15] = f;
+}
+
+// Shift LFSR with initialization mode.
+static void lfsr_init(uint32_t lfsr[16], const uint32_t u)
 {
-    BitReorganization();
-    F(); /* discard the output of F */
-    LFSRWithWorkMode();
-    for (int i = 0; i < KeystreamLen; i ++) {
-        BitReorganization();
-        pKeystream[i] = F() ^ X[3];
-        LFSRWithWorkMode();
+    lfsr_append(lfsr, addition_uint31(lfsr_next(lfsr), u));
+}
+
+// Shift LFSR with work mode.
+static void lfsr_shift(uint32_t lfsr[16]) {
+    lfsr_append(lfsr, lfsr_next(lfsr));
+}
+
+// The nonlinear function F.
+static uint32_t f(pzuc_context context)
+{
+    const uint32_t W = (context->x[0] ^ context->r[0]) + context->r[1];
+    const uint32_t W1 = context->r[0] + context->x[1];
+    const uint32_t W2 = context->r[1] ^ context->x[2];
+    const uint32_t u = l1((W1 << 16) | (W2 >> 16));
+    const uint32_t v = l2((W2 << 16) | (W1 >> 16));
+    context->r[0] = make_uint32(S0[u >> 24], S1[(u >> 16) & 0xFF],
+                     S0[(u >> 8) & 0xFF], S1[u & 0xFF]);
+    context->r[1] = make_uint32(S0[v >> 24], S1[(v >> 16) & 0xFF],
+                     S0[(v >> 8) & 0xFF], S1[v & 0xFF]);
+    return W;
+}
+
+// The bit-reorganization.
+static void bit_reorganization(pzuc_context context)
+{
+    context->x[0] = ((context->lfsr[15] & 0x7FFF8000) << 1) | (context->lfsr[14] & 0xFFFF);
+    context->x[1] = ((context->lfsr[11] & 0xFFFF) << 16) | (context->lfsr[9] >> 15);
+    context->x[2] = ((context->lfsr[7] & 0xFFFF) << 16) | (context->lfsr[5] >> 15);
+    context->x[3] = ((context->lfsr[2] & 0xFFFF) << 16) | (context->lfsr[0] >> 15);
+}
+
+// Exported functions.
+
+// Init ZUC Cipher.
+void zuc_init(pzuc_context context, const uint8_t* key, const uint8_t* iv)
+{
+    // Expand key.
+    for (int i = 0; i < 16; ++i) {
+        context->lfsr[i] = make_uint31(key[i], D[i], iv[i]);
+    }
+    context->r[0] = 0;
+    context->r[1] = 0;
+    for (int i = 0; i < 32; ++i) {
+        bit_reorganization(context);
+        const uint32_t w = f(context);
+        lfsr_init(context->lfsr, w >> 1);
     }
 }
 
-int main(void)
-{
-    uint8_t key[16], iv[16];
-    uint32_t buffer[16];
-    for (int i = 0; i < 16; ++i) {
-        key[i] = 0;
-        iv[i] = 0;
-        buffer[i] = 0;
+void zuc_generate_keystream(pzuc_context context, uint32_t keystream_buffer[], const size_t keystream_length) {
+    bit_reorganization(context);
+    f(context); // Discard the output of F.
+    lfsr_shift(context->lfsr);
+    for (int i = 0; i < keystream_length; ++i) {
+        bit_reorganization(context);
+        keystream_buffer[i] = f(context) ^ context->x[3];
+        lfsr_shift(context->lfsr);
     }
-    Initialization(key, iv);
-    GenerateKeystream(buffer, 16);
-    printf("%08x,%08x\n", buffer[0], buffer[1]); // Expect: "27bede74,018082da"
 }
