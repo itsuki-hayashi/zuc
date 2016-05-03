@@ -2,6 +2,7 @@
 #if defined(_M_IX86) || defined(_M_X64)
 #   include <immintrin.h>
 #endif
+#include <string.h>
 
 // Constants.
 
@@ -118,9 +119,7 @@ static uint32_t lfsr_next(const uint32_t lfsr[16]) {
 
 // Append to LFSR.
 static void lfsr_append(uint32_t lfsr[16], const uint32_t f) {
-    for (size_t i = 0; i < 15; ++i) {
-        lfsr[i] = lfsr[i + 1];
-    }
+    memmove(&lfsr[0], &lfsr[1], sizeof(uint32_t) * 15);
     lfsr[15] = f;
 }
 
