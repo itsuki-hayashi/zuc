@@ -54,14 +54,14 @@ static const uint16_t D[16] = {
 // Pure functions.
 
 // Addtion of 31-bits unsigned integers.
-static uint32_t addition_uint31(const uint32_t a, const uint32_t b)
+static inline uint32_t addition_uint31(const uint32_t a, const uint32_t b)
 {
     const uint32_t c = a + b;
     return (c & 0x7FFFFFFF) + (c >> 31);
 }
 
 // Circular left shift of 31-bits unsigned integer.
-static uint32_t rotl_uint31(const uint32_t a, const uint32_t shift)
+static inline uint32_t rotl_uint31(const uint32_t a, const uint32_t shift)
 {
     return ((a << shift) | (a >> (31 - shift))) & 0x7FFFFFFF;
 }
@@ -70,32 +70,32 @@ static uint32_t rotl_uint31(const uint32_t a, const uint32_t shift)
 #if defined(_M_IX86) || defined(_M_X64)
 #    define rotl_uint32 _rotl // Use Intel intrinsics when available.
 #else
-static uint32_t rotl_uint32(const uint32_t a, const uint32_t shift)
+static inline uint32_t rotl_uint32(const uint32_t a, const uint32_t shift)
 {
     return (a << shift) | (a >> (32 - shift));
 }
 #endif
 
 // The linear transforms L1.
-static uint32_t l1(const uint32_t x)
+static inline uint32_t l1(const uint32_t x)
 {
     return (x ^ rotl_uint32(x, 2) ^ rotl_uint32(x, 10) ^ rotl_uint32(x, 18) ^ rotl_uint32(x, 24));
 }
 
 // The linear transforms L2.
-static uint32_t l2(const uint32_t x)
+static inline uint32_t l2(const uint32_t x)
 {
     return (x ^ rotl_uint32(x, 8) ^ rotl_uint32(x, 14) ^ rotl_uint32(x, 22) ^ rotl_uint32(x, 30));
 }
 
 // Makes 32-bits unsigned integer.
-static uint32_t make_uint32(const uint8_t a, const uint8_t b, const uint8_t c, const uint8_t d)
+static inline uint32_t make_uint32(const uint8_t a, const uint8_t b, const uint8_t c, const uint8_t d)
 {
     return (((uint32_t)a << 24) | ((uint32_t)b << 16) | ((uint32_t)c << 8) | (uint32_t)d);
 }
 
 // Makes 31-bits unsigned integer.
-static uint32_t make_uint31(const uint8_t a, const uint16_t b, const uint8_t c)
+static inline uint32_t make_uint31(const uint8_t a, const uint16_t b, const uint8_t c)
 {
     return ((uint32_t)a << 23) | ((uint32_t)b << 8) | (uint32_t)c;
 }
@@ -118,19 +118,19 @@ static uint32_t lfsr_next(const uint32_t lfsr[16]) {
 // Impure functions.
 
 // Append to LFSR.
-static void lfsr_append(uint32_t lfsr[16], const uint32_t f) {
+static inline void lfsr_append(uint32_t lfsr[16], const uint32_t f) {
     memmove(&lfsr[0], &lfsr[1], 15 * sizeof(uint32_t));
     lfsr[15] = f;
 }
 
 // Shift LFSR with initialization mode.
-static void lfsr_init(uint32_t lfsr[16], const uint32_t u)
+static inline void lfsr_init(uint32_t lfsr[16], const uint32_t u)
 {
     lfsr_append(lfsr, addition_uint31(lfsr_next(lfsr), u));
 }
 
 // Shift LFSR with work mode.
-static void lfsr_shift(uint32_t lfsr[16]) {
+static inline void lfsr_shift(uint32_t lfsr[16]) {
     lfsr_append(lfsr, lfsr_next(lfsr));
 }
 
@@ -150,7 +150,7 @@ static uint32_t f(pzuc_context context)
 }
 
 // The bit-reorganization.
-static void bit_reorganization(pzuc_context context)
+static inline void bit_reorganization(pzuc_context context)
 {
     context->x[0] = ((context->lfsr[15] & 0x7FFF8000) << 1) | (context->lfsr[14] & 0xFFFF);
     context->x[1] = ((context->lfsr[11] & 0xFFFF) << 16) | (context->lfsr[9] >> 15);
@@ -167,11 +167,11 @@ pzuc_context zuc_init(pzuc_context context, const uint8_t* key, const uint8_t* i
         context = malloc(sizeof(zuc_context));
     }
     // Expand key.
-    for (int i = 0; i < 16; ++i) {
+    for (size_t i = 0; i < 16; ++i) {
         context->lfsr[i] = make_uint31(key[i], D[i], iv[i]);
     }
     memset(context->r, 0, 2 * sizeof(uint32_t));
-    for (int i = 0; i < 32; ++i) {
+    for (size_t i = 0; i < 32; ++i) {
         bit_reorganization(context);
         const uint32_t w = f(context);
         lfsr_init(context->lfsr, w >> 1);
@@ -183,7 +183,7 @@ void zuc_generate_keystream(pzuc_context context, uint32_t keystream_buffer[], c
     bit_reorganization(context);
     f(context); // Discard the output of F.
     lfsr_shift(context->lfsr);
-    for (int i = 0; i < keystream_length; ++i) {
+    for (size_t i = 0; i < keystream_length; ++i) {
         bit_reorganization(context);
         keystream_buffer[i] = f(context) ^ context->x[3];
         lfsr_shift(context->lfsr);

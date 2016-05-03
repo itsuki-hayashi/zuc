@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <Windows.h>
-int main() {
+int main(void) {
     const uint64_t BUFFER_SIZE = 4096 / sizeof(uint32_t);
     uint8_t key[16], iv[16];
     uint32_t * buffer = calloc(BUFFER_SIZE, sizeof(uint32_t));
@@ -21,7 +21,7 @@ int main() {
     }
     puts("Benchmarking performance.");
     
-    const uint64_t TEST_SIZE = 10 * 1024; // 10 * 1024 MiB.
+    const uint64_t TEST_SIZE = 1 * 1024; // 10 * 1024 MiB.
     const uint64_t BEGIN_TIME = GetTickCount64();
     for (uint64_t i = 0; i < (TEST_SIZE * 1024 * 1024) / (sizeof(uint32_t) * BUFFER_SIZE); ++i) {
         zuc_generate_keystream(&context, buffer, BUFFER_SIZE);
