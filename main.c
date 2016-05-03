@@ -15,7 +15,6 @@ int main() {
     */
     memset(key, 0, 16);
     memset(iv, 0, 16);
-    zuc_init(&context, key, iv);
     /*
     const uint64_t begin = GetTickCount64();
     for (uint64_t i = 0; i < 1024 * 10240; ++i) {
@@ -25,7 +24,7 @@ int main() {
     
         printf("%llu\n", end - begin);
     */
-    zuc_generate_keystream(&context, buffer, 1024 / 4);
+    zuc_generate_keystream(zuc_init(&context, key, iv), buffer, 1024 / 4);
     printf("%x, %x\n", buffer[0], buffer[1]); // 27bede74, 18082da
     
 }
