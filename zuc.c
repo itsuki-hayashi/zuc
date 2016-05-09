@@ -3,7 +3,7 @@
 #   include <immintrin.h>
 #endif
 #include <string.h>
-
+#include <stdlib.h>
 // Constants.
 
 // The S-boxes.
@@ -167,11 +167,11 @@ pzuc_context zuc_init(pzuc_context context, const uint8_t* key, const uint8_t* i
         context = malloc(sizeof(zuc_context));
     }
     // Expand key.
-    for (size_t i = 0; i < 16; ++i) {
+    for (uint64_t i = 0; i < 16; ++i) {
         context->lfsr[i] = make_uint31(key[i], D[i], iv[i]);
     }
     memset(context->r, 0, 2 * sizeof(uint32_t));
-    for (size_t i = 0; i < 32; ++i) {
+    for (uint64_t i = 0; i < 32; ++i) {
         bit_reorganization(context);
         const uint32_t w = f(context);
         lfsr_init(context->lfsr, w >> 1);
@@ -179,11 +179,11 @@ pzuc_context zuc_init(pzuc_context context, const uint8_t* key, const uint8_t* i
     return context;
 }
 
-void zuc_generate_keystream(pzuc_context context, uint32_t keystream_buffer[], const size_t keystream_length) {
+void zuc_generate_keystream(pzuc_context context, uint32_t keystream_buffer[], const uint64_t keystream_length) {
     bit_reorganization(context);
     f(context); // Discard the output of F.
     lfsr_shift(context->lfsr);
-    for (size_t i = 0; i < keystream_length; ++i) {
+    for (uint64_t i = 0; i < keystream_length; ++i) {
         bit_reorganization(context);
         keystream_buffer[i] = f(context) ^ context->x[3];
         lfsr_shift(context->lfsr);
