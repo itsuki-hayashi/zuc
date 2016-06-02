@@ -163,9 +163,6 @@ static inline void bit_reorganization(pzuc_context context)
 // Init ZUC Cipher.
 void zuc_init(pzuc_context context, const uint8_t* key, const uint8_t* iv)
 {
-    if (context == NULL) {
-        context = malloc(sizeof(zuc_context));
-    }
     // Expand key.
     for (uint64_t i = 0; i < 16; ++i) {
         context->lfsr[i] = make_uint31(key[i], D[i], iv[i]);
@@ -176,7 +173,6 @@ void zuc_init(pzuc_context context, const uint8_t* key, const uint8_t* iv)
         const uint32_t w = f(context);
         lfsr_init(context->lfsr, w >> 1);
     }
-    return context;
 }
 
 void zuc_generate_keystream(pzuc_context context, uint32_t keystream_buffer[], const uint64_t keystream_length) {
