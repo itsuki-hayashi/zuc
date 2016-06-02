@@ -175,7 +175,7 @@ void zuc_init(pzuc_context context, const uint8_t* key, const uint8_t* iv)
     }
 }
 
-void zuc_generate_keystream(pzuc_context context, uint32_t keystream_buffer[], const uint64_t keystream_length) {
+void zuc_generate_keystream(pzuc_context context, uint32_t keystream_buffer[], const size_t keystream_length) {
     bit_reorganization(context);
     f(context); // Discard the output of F.
     lfsr_shift(context->lfsr);
@@ -183,5 +183,21 @@ void zuc_generate_keystream(pzuc_context context, uint32_t keystream_buffer[], c
         bit_reorganization(context);
         keystream_buffer[i] = f(context) ^ context->x[3];
         lfsr_shift(context->lfsr);
+    }
+}
+
+void zuc_encrypt(pzuc_context context, size_t length, const uint8_t* in, uint8_t* out) {
+    uint8_t buffer[4];
+    bit_reorganization(context);
+    f(context); // Discard the output of F.
+    lfsr_shift(context->lfsr);
+    for (uint64_t i = 0; i < length; ++i) {
+        const size_t buffer_index = i % 4;
+        if (buffer_index == 0) {
+            bit_reorganization(context);
+            *(uint32_t *)buffer = f(context) ^ context->x[3];
+            lfsr_shift(context->lfsr);
+        }
+        out[i] = in[i] ^ buffer[buffer_index];
     }
 }

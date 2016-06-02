@@ -10,7 +10,8 @@ int main(void) {
     zuc_context context;
     memset(key, 0, 16);
     memset(iv, 0, 16);
-    zuc_generate_keystream(zuc_init(&context, key, iv), buffer, 1024 / 4);
+    zuc_init(&context, key, iv);
+    zuc_generate_keystream(&context, buffer, 1024 / 4);
     printf("%x, %x\n", buffer[0], buffer[1]); // 27bede74, 18082da
     if (buffer[0] == 0x27bede74 && buffer[1] == 0x18082da) {
         puts("Implemented correctly.");
