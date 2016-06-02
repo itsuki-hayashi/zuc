@@ -161,7 +161,7 @@ static inline void bit_reorganization(pzuc_context context)
 // Exported functions.
 
 // Init ZUC Cipher.
-pzuc_context zuc_init(pzuc_context context, const uint8_t* key, const uint8_t* iv)
+void zuc_init(pzuc_context context, const uint8_t* key, const uint8_t* iv)
 {
     if (context == NULL) {
         context = malloc(sizeof(zuc_context));
